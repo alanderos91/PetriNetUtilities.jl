@@ -2,6 +2,12 @@ module PetriNetUtilities
 
 using LightGraphs, GraphPlot, DiffEqBiological
 
+mutable struct PetriNet{GRAPH}
+    g::GRAPH
+    nodelabel::Vector{Symbol}
+    edgelabel::Vector{String}
+end
+
 function make_petri_net(rs)
     # extract nodes
     species_nodes  = species(rs)
@@ -14,7 +20,7 @@ function make_petri_net(rs)
 
     # labels
     nodelabel = vcat(species_nodes, reaction_nodes)
-    edgelabel = []
+    edgelabel = String[]
 
     dep_graph = rxtospecies_depgraph(rs)
 
@@ -23,7 +29,7 @@ function make_petri_net(rs)
         for (k, stoich) in productstoich(rs, j)
             push!(edge_set, (number_species + j, k))
             if stoich > 1
-                push!(edgelabel, stoich)
+                push!(edgelabel, string(stoich))
             else
                 push!(edgelabel, "")
             end
@@ -33,7 +39,7 @@ function make_petri_net(rs)
         for (k, stoich) in substratestoich(rs, j)
             push!(edge_set, (k, number_species + j))
             if stoich > 1
-                push!(edgelabel, stoich)
+                push!(edgelabel, string(stoich))
             else
                 push!(edgelabel, "")
             end
@@ -48,12 +54,28 @@ function make_petri_net(rs)
         add_edge!(g, edge)
     end
 
-    return gplot(g,
-        nodelabel = nodelabel,
-        edgelabel = edgelabel,
-        layout    = spectral_layout)
+    # return gplot(g,
+    #     nodelabel = nodelabel,
+    #     edgelabel = edgelabel,
+    #     layout    = spectral_layout,
+    #     edgelabeldistx=1.0)
+    return PetriNet(g, nodelabel, edgelabel)
 end
 
-export make_petri_net
+import GraphPlot: gplot
+
+function gplot(petri_net::PetriNet, locs_x_in::Vector{R}, locs_y_in::Vector{R}; keyargs...) where {R <: Real}
+    gplot(petri_net.g,
+        locs_x_in, locs_y_in;
+        nodelabel = petri_net.nodelabel,
+        edgelabel = petri_net.edgelabel,
+        keyargs...)
+end
+
+function gplot(petri_net::PetriNet; layout::Function=spring_layout, keyargs...)
+    gplot(petri_net, layout(petri_net.g)...; keyargs...)
+end
+
+export make_petri_net, gplot
 
 end # module
